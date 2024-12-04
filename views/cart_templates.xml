@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    
+    <template id="cart_lines_discount" inherit_id="website_sale.cart_lines">
+        <xpath expr="//div[@id='cart_products']//div[hasclass('mb-0')]" position="replace">
+            <div class="mb-0 h6 fw-bold text-end" name="website_sale_cart_line_price"
+                 t-att-data-has-discount="json.dumps(line.product_id.has_discount)"
+                 t-att-data-list-price="line.product_id.list_price"
+                 t-att-data-discount-percentage="line.product_id.discount_percentage">
+                <!-- Price display with discount -->
+                <t t-if="line.product_id.has_discount">
+                    <del t-attf-class="text-danger me-2" style="white-space: nowrap;">
+                        <span t-field="line.product_id.list_price" t-options="{'widget': 'monetary', 'display_currency': website_sale_order.currency_id}"/>
+                    </del>
+                    <!-- Calculate discounted price -->
+                    <t t-set="discounted_price" t-value="line.product_id.list_price * (1 - (line.product_id.discount_percentage / 100))"/>
+                    <t t-set="discounted_total" t-value="discounted_price * line.product_uom_qty"/>
+                    
+                    <!-- Apply taxes if needed -->
+                    <t t-if="website.show_line_subtotals_tax_selection == 'tax_excluded'">
+                        <span t-esc="discounted_total" style="white-space: nowrap;" t-options="{'widget': 'monetary', 'display_currency': website_sale_order.currency_id}"/>
+                    </t>
+                    <t t-else="">
+                        <t t-set="taxes" t-value="line.product_id.taxes_id.compute_all(discounted_price)"/>
+                        <span t-esc="taxes['total_included'] * line.product_uom_qty" style="white-space: nowrap;" t-options="{'widget': 'monetary', 'display_currency': website_sale_order.currency_id}"/>
+                    </t>
+                    
+                    <span class="badge text-bg-danger ms-2">
+                        -<t t-esc="round(line.product_id.discount_percentage)"/>%
+                    </span>
+                </t>
+                <!-- Regular price without discount -->
+                <t t-else="">
+                    <t t-if="line.discount">
+                        <del t-attf-class="#{'text-danger mr8'}" style="white-space: nowrap;" t-out="line._get_displayed_unit_price() * line.product_uom_qty" t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
+                    </t>
+                    <t t-if="website.show_line_subtotals_tax_selection == 'tax_excluded'" t-set="product_price" t-value="line.price_subtotal"/>
+                    <t t-else="" t-set="product_price" t-value="line.price_total"/>
+                    <span t-out="product_price" style="white-space: nowrap;" t-options="{'widget': 'monetary', 'display_currency': website_sale_order.currency_id}"/>
+                </t>
+            </div>
+        </xpath>
+    </template>
+
+    <template id="products_item_discount" inherit_id="website_sale.products_item">
+        <xpath expr="//div[hasclass('product_price')]" position="replace">
+            <div class="product_price h-100 o_wsale_product_information" 
+                t-att-data-has-discount="json.dumps(product.has_discount)"
+                t-att-data-list-price="product.list_price"
+                t-att-data-discount-percentage="product.discount_percentage"
+                t-att-data-currency-symbol="website.currency_id.symbol"
+                t-att-data-currency-position="website.currency_id.position"
+                t-att-data-precision="website.currency_id.decimal_places">
+                <t t-if="product.has_discount">
+                    <div class="d-flex flex-column align-items-center justify-content-center h-100">
+                        <del class="text-danger">
+                            <span t-esc="product.list_price" t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
+                        </del>
+                        <div class="oe_price mt-1">
+                            <!-- Calculate discounted price -->
+                            <t t-set="discounted_price" t-value="product.list_price * (1 - (product.discount_percentage / 100))"/>
+                            <span t-esc="discounted_price" t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
+                        </div>
+                        <span class="badge text-bg-danger position-absolute top-0 end-0">
+                            -<t t-esc="round(product.discount_percentage)"/>%
+                        </span>
+                    </div>
+                </t>
+                <t t-else="">
+                    <div class="d-flex justify-content-center align-items-center h-100">
+                        <span class="oe_price" t-esc="product.list_price" t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
+                    </div>
+                </t>
+            </div>
+        </xpath>
+    </template>
+
+    
+    <template id="products_discount" inherit_id="website_sale.products">
+        <xpath expr="//div[hasclass('oe_website_sale')]" position="attributes">
+            <attribute name="t-att-data-currency-symbol">website.currency_id.symbol</attribute>
+            <attribute name="t-att-data-currency-position">website.currency_id.position</attribute>
+            <attribute name="t-att-data-precision">website.currency_id.decimal_places</attribute>
+        </xpath>
+    </template>
+
+   
+         <template id="total_discount" inherit_id="website_sale.total">
+        <!-- Subtotal -->
+        <xpath expr="//tr[@id='order_total_untaxed']/td[last()]" position="replace">
+            <td class="text-end border-0 pb-2 pe-0 pt-0">
+                <t t-if="any(line.product_id.has_discount for line in website_sale_order.order_line)">
+                    <t t-set="total_discount" t-value="sum((line.product_id.list_price - (line.product_id.list_price * (1 - line.product_id.discount_percentage / 100))) * line.product_uom_qty for line in website_sale_order.order_line if line.product_id.has_discount)"/>
+                    <t t-set="discounted_subtotal" t-value="website_sale_order.amount_untaxed - total_discount"/>
+                    <span class="monetary_field" style="white-space: nowrap;" t-esc="discounted_subtotal" t-options="{'widget': 'monetary', 'display_currency': website_sale_order.currency_id}"/>
+                </t>
+                <t t-else="">
+                    <span class="monetary_field" style="white-space: nowrap;" t-field="website_sale_order.amount_untaxed" t-options="{'widget': 'monetary', 'display_currency': website_sale_order.currency_id}"/>
+                </t>
+            </td>
+        </xpath>
+
+        <!-- Taxes -->
+        <xpath expr="//tr[@id='order_total_taxes']/td[last()]" position="replace">
+            <td class="text-end border-0 pe-0 pt-0 pb-3">
+                <t t-if="any(line.product_id.has_discount for line in website_sale_order.order_line)">
+                    <t t-set="total_discount" t-value="sum((line.product_id.list_price - (line.product_id.list_price * (1 - line.product_id.discount_percentage / 100))) * line.product_uom_qty for line in website_sale_order.order_line if line.product_id.has_discount)"/>
+                    <t t-set="discounted_subtotal" t-value="website_sale_order.amount_untaxed - total_discount"/>
+                    <t t-set="tax_amount" t-value="website_sale_order.amount_tax * (discounted_subtotal / website_sale_order.amount_untaxed if website_sale_order.amount_untaxed else 1)"/>
+                    <span class="monetary_field" style="white-space: nowrap;" t-esc="tax_amount" t-options="{'widget': 'monetary', 'display_currency': website_sale_order.currency_id}"/>
+                </t>
+                <t t-else="">
+                    <span class="monetary_field" style="white-space: nowrap;" t-field="website_sale_order.amount_tax" t-options="{'widget': 'monetary', 'display_currency': website_sale_order.currency_id}"/>
+                </t>
+            </td>
+        </xpath>
+
+        <!-- Total -->
+        <xpath expr="//tr[@id='order_total']/td[last()]" position="replace">
+            <td class="text-end border-0 px-0 pt-3">
+                <t t-if="any(line.product_id.has_discount for line in website_sale_order.order_line)">
+                    <t t-set="total_discount" t-value="sum((line.product_id.list_price - (line.product_id.list_price * (1 - line.product_id.discount_percentage / 100))) * line.product_uom_qty for line in website_sale_order.order_line if line.product_id.has_discount)"/>
+                    <t t-set="discounted_subtotal" t-value="website_sale_order.amount_untaxed - total_discount"/>
+                    <t t-set="tax_amount" t-value="website_sale_order.amount_tax * (discounted_subtotal / website_sale_order.amount_untaxed if website_sale_order.amount_untaxed else 1)"/>
+                    <strong class="monetary_field text-end p-0" t-esc="discounted_subtotal + tax_amount" t-options="{'widget': 'monetary', 'display_currency': website_sale_order.currency_id}"/>
+                </t>
+                <t t-else="">
+                    <strong class="monetary_field text-end p-0" t-field="website_sale_order.amount_total" t-options="{'widget': 'monetary', 'display_currency': website_sale_order.currency_id}"/>
+                </t>
+            </td>
+        </xpath>
+    </template>
+       </odoo>
