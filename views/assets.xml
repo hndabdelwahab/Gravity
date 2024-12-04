@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<odoo>
-    <template id="assets_frontend" inherit_id="web.assets_frontend">
-        <xpath expr="." position="inside">
-            <script type="text/javascript" src="/website_sale_discount/static/src/js/product_card.js"/>
-        </xpath>
-    </template>
-</odoo>
